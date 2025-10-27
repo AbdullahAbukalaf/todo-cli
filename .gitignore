@@ -1,5 +1,6 @@
 # Python cache / build files
 __pycache__/
+todo_cli.egg-info/
 *.pyc
 *.pyo
 *.pyd
