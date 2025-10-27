@@ -21,3 +21,5 @@ Clone the repository:
 ```bash
 git clone https://github.com/AbdullahAbukalaf/todo-cli.git
 cd todo-cli
+
+Install dependencies and the CLI:
