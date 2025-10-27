@@ -1,7 +1,6 @@
 from task import createTask, markAsDone
-from storage import saveTask, loadTask
+from storage import saveTask, loadTask, loadHistory, saveHistory
 import sys
-
 USAGE = """
 To-Do CLI
 Usage:
@@ -13,6 +12,8 @@ Usage:
 """
 
 # Add function
+
+
 def cmd_add(title: str, priority: str):
     tasks = loadTask()
     if priority == "--high":
@@ -26,8 +27,10 @@ def cmd_add(title: str, priority: str):
     tasks.append(new_task)
     saveTask(tasks)
     print(f'✅ Added task #{next_id}: "{title}"')
-     
-# Fetch the data   
+
+# Fetch the data
+
+
 def cmd_list(tasktatus: bool = False):
     tasks = loadTask()
     if not tasks:
@@ -40,22 +43,24 @@ def cmd_list(tasktatus: bool = False):
             return
     else:
         pendingTasks = tasks
-    
-    print("Your tasks:\n")  
+
+    print("Your tasks:\n")
     for t in pendingTasks:
             status = "✔" if t["done"] else "✖"
-            print(f'{t["id"]:>3}. [{status}] [{t["priority"]}] {t["title"]}')  
+            print(f'{t["id"]:>3}. [{status}] [{t["priority"]}] {t["title"]}')
     print()
-    
+
 # Mark task ans done
+
+
 def cmd_done(taskId: str):
     tasks = loadTask()
     try:
         task_id = int(taskId)
     except ValueError:
         print("Task ID must be a number.")
-        return 
-    
+        return
+
     for t in tasks:
         if t["id"] == task_id:
             if t["done"]:
@@ -65,10 +70,12 @@ def cmd_done(taskId: str):
                 saveTask(tasks)
                 print(f"✅ Marked task #{task_id} as done.")
             return
-    
+
     print(f"Task #{task_id} not found.")
-    
+
 # edit task title
+
+
 def cmd_edit(taskId: str, newTitle: str):
     tasks = loadTask()
     try:
@@ -76,7 +83,7 @@ def cmd_edit(taskId: str, newTitle: str):
     except ValueError:
         print("Task Id must be a number.")
         return
-    
+
     for t in tasks:
         if t["id"] == task_id:
             if t["title"] == newTitle:
@@ -86,10 +93,12 @@ def cmd_edit(taskId: str, newTitle: str):
             print(f'#{t["id"]} task title updated successfully.')
             saveTask(tasks)
             return
-    
+
     print(f"Task #{task_id} not found.")
 
 # delete a task
+
+
 def cmd_delete(taskId: str):
     tasks = loadTask()
     try:
@@ -97,22 +106,64 @@ def cmd_delete(taskId: str):
     except ValueError:
         print("task ID must be a number.")
         return
-    
-    new_tasks = [t for t in tasks if t["id"] != task_id]
-    if len(new_tasks) == len(tasks):
-        print(f'Task #{task_id} not found')
+
+    # find the task we're about to delete
+    task_to_delete = {}
+    for t in tasks:
+        if t["id"] == task_id:
+            task_to_delete = t
+            break
+
+    if not task_to_delete:
+        print(f"Task #{task_id} not found")
         return
 
+    # save undo info BEFORE deleting
+    history = loadHistory()
+    history.append({
+        "action": "restore_task",
+        "task": task_to_delete
+    })
+    saveHistory(history)
+
+    # now actually delete it
+    new_tasks = [t for t in tasks if t["id"] != task_id]
     saveTask(new_tasks)
     print(f"🗑 Deleted task #{task_id}.")
-    
-# clear tasks   
+    print(history)
+
+# clear tasks
+
+
 def cmd_clear():
     saveTask([])
-    print("All tasks cleared.")   
+    print("All tasks cleared.")
 
 
+def cmd_undo():
+    history = loadHistory()
+    if not history:
+        print("Nothing to undo.")
+        return
+    print(history)
+    last = history.pop()  # get the last action
 
+    action_type = last["action"]
+
+    tasks = loadTask()
+
+    # 1. undo delete (restore one task)
+    if action_type == "restore_task":
+        restored_task = last["task"]
+        tasks.append(restored_task)
+        tasks.sort(key=lambda x: x["id"])
+        saveTask(tasks)
+        print(f'Restored task #{restored_task["id"]}: "{restored_task["title"]}"')
+    else:
+        print("Undo action type not recognized.")
+    
+    saveHistory(history)
+        
 #main function
 def main():
     if len(sys.argv) < 2:
@@ -160,6 +211,10 @@ def main():
         id = sys.argv[2]
         title = " ".join(sys.argv[3:])
         cmd_edit(id , title)
+    
+    elif command == "undo":
+        print("true")
+        cmd_undo()
     
     else:
         print("Unknown command.\n")
