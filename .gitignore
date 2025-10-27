@@ -1,0 +1,17 @@
+# Python cache / build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+build/
+dist/
+
+# Virtual environments
+venv/
+.env/
+
+# Local data file (user tasks)
+task.json
+tasks.json
