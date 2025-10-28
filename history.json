@@ -1,1 +1,6 @@
-[]
+[
+  {
+    "action": "mark_undone",
+    "task_id": 2
+  }
+]

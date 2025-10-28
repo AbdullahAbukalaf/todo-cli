@@ -55,6 +55,7 @@ def cmd_list(tasktatus: bool = False):
 
 def cmd_done(taskId: str):
     tasks = loadTask()
+    history = loadHistory()
     try:
         task_id = int(taskId)
     except ValueError:
@@ -66,10 +67,18 @@ def cmd_done(taskId: str):
             if t["done"]:
                 print(f'{t["id"]} is already mark as done.')
             else:
+                history.append({
+                    "action": "mark_undone",
+                    "task_id": task_id
+                })
+                saveHistory(history)
                 markAsDone(t)
                 saveTask(tasks)
+                
                 print(f"✅ Marked task #{task_id} as done.")
             return
+        
+    
 
     print(f"Task #{task_id} not found.")
 
@@ -77,23 +86,34 @@ def cmd_done(taskId: str):
 
 
 def cmd_edit(taskId: str, newTitle: str):
+    global history
     tasks = loadTask()
     try:
         task_id = int(taskId)
     except ValueError:
         print("Task Id must be a number.")
         return
-
+    
     for t in tasks:
         if t["id"] == task_id:
-            if t["title"] == newTitle:
+            old_title = t["title"]
+
+            if old_title == newTitle:
                 print("You entered the same title, try changing it to a new one.")
                 return
-            t["title"] = newTitle
-            print(f'#{t["id"]} task title updated successfully.')
-            saveTask(tasks)
-            return
 
+            # record undo info
+            history.append({
+                "action": "revert_title",
+                "task_id": task_id,
+                "old_title": old_title
+            })
+
+            t["title"] = newTitle
+            saveTask(tasks)
+            print(f'Task #{t["id"]} title updated successfully.')
+            return
+    
     print(f"Task #{task_id} not found.")
 
 # delete a task
@@ -136,8 +156,18 @@ def cmd_delete(taskId: str):
 
 
 def cmd_clear():
+    history = loadHistory()
+    tasks_before = loadTask()
+
+    # record undo info (all tasks)
+    history.append({
+        "action": "restore_all",
+        "tasks": tasks_before
+    })
+    saveHistory(history)
     saveTask([])
     print("All tasks cleared.")
+
 
 
 def cmd_undo():
@@ -145,7 +175,7 @@ def cmd_undo():
     if not history:
         print("Nothing to undo.")
         return
-    print(history)
+
     last = history.pop()  # get the last action
 
     action_type = last["action"]
@@ -156,14 +186,45 @@ def cmd_undo():
     if action_type == "restore_task":
         restored_task = last["task"]
         tasks.append(restored_task)
+        # keep list sorted by id so list doesn't look weird
         tasks.sort(key=lambda x: x["id"])
         saveTask(tasks)
         print(f'Restored task #{restored_task["id"]}: "{restored_task["title"]}"')
-    else:
-        print("Undo action type not recognized.")
-    
-    saveHistory(history)
-        
+        return
+
+    # 2. undo mark done (mark it undone)
+    if action_type == "mark_undone":
+        target_id = last["task_id"]
+        for t in tasks:
+            if t["id"] == target_id:
+                t["done"] = False
+                saveTask(tasks)
+                print(f"Reverted task #{target_id} back to not done.")
+                return
+        print("Couldn't undo: task not found anymore.")
+        return
+
+    # 3. undo edit title (revert the old title)
+    if action_type == "revert_title":
+        target_id = last["task_id"]
+        old_title = last["old_title"]
+        for t in tasks:
+            if t["id"] == target_id:
+                t["title"] = old_title
+                saveTask(tasks)
+                print(f"Reverted title of task #{target_id} back to \"{old_title}\"")
+                return
+        print("Couldn't undo: task not found anymore.")
+        return
+
+    # 4. undo clear (restore all tasks)
+    if action_type == "restore_all":
+        saveTask(last["tasks"])
+        print("Restored all tasks.")
+        return
+
+    print("Undo action type not recognized.")
+
 #main function
 def main():
     if len(sys.argv) < 2:

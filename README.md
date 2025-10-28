@@ -28,4 +28,7 @@ Install dependencies and the CLI:
 pip install --editable
 ```
 
+## 🧠 Data Structures Highlights
+- Undo system implemented using a stack of reverse operations (LIFO).
+
 
