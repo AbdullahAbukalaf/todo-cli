@@ -1,6 +1,7 @@
 from task import createTask, markAsDone
 from storage import saveTask, loadTask, loadHistory, saveHistory
 import sys
+import heapq
 USAGE = """
 To-Do CLI
 Usage:
@@ -12,8 +13,6 @@ Usage:
 """
 
 # Add function
-
-
 def cmd_add(title: str, priority: str):
     tasks = loadTask()
     if priority == "--high":
@@ -29,8 +28,6 @@ def cmd_add(title: str, priority: str):
     print(f'✅ Added task #{next_id}: "{title}"')
 
 # Fetch the data
-
-
 def cmd_list(tasktatus: bool = False):
     tasks = loadTask()
     if not tasks:
@@ -46,13 +43,11 @@ def cmd_list(tasktatus: bool = False):
 
     print("Your tasks:\n")
     for t in pendingTasks:
-            status = "✔" if t["done"] else "✖"
-            print(f'{t["id"]:>3}. [{status}] [{t["priority"]}] {t["title"]}')
+        status = "✔" if t["done"] else "✖"
+        print(f'{t["id"]:>3}. [{status}] [{t["priority"]}] {t["title"]}')
     print()
 
 # Mark task ans done
-
-
 def cmd_done(taskId: str):
     tasks = loadTask()
     history = loadHistory()
@@ -74,17 +69,13 @@ def cmd_done(taskId: str):
                 saveHistory(history)
                 markAsDone(t)
                 saveTask(tasks)
-                
+
                 print(f"✅ Marked task #{task_id} as done.")
             return
-        
-    
 
     print(f"Task #{task_id} not found.")
 
 # edit task title
-
-
 def cmd_edit(taskId: str, newTitle: str):
     global history
     tasks = loadTask()
@@ -93,7 +84,7 @@ def cmd_edit(taskId: str, newTitle: str):
     except ValueError:
         print("Task Id must be a number.")
         return
-    
+
     for t in tasks:
         if t["id"] == task_id:
             old_title = t["title"]
@@ -113,12 +104,10 @@ def cmd_edit(taskId: str, newTitle: str):
             saveTask(tasks)
             print(f'Task #{t["id"]} title updated successfully.')
             return
-    
+
     print(f"Task #{task_id} not found.")
 
 # delete a task
-
-
 def cmd_delete(taskId: str):
     tasks = loadTask()
     try:
@@ -153,8 +142,6 @@ def cmd_delete(taskId: str):
     print(history)
 
 # clear tasks
-
-
 def cmd_clear():
     history = loadHistory()
     tasks_before = loadTask()
@@ -168,8 +155,7 @@ def cmd_clear():
     saveTask([])
     print("All tasks cleared.")
 
-
-
+# undo action
 def cmd_undo():
     history = loadHistory()
     if not history:
@@ -189,7 +175,8 @@ def cmd_undo():
         # keep list sorted by id so list doesn't look weird
         tasks.sort(key=lambda x: x["id"])
         saveTask(tasks)
-        print(f'Restored task #{restored_task["id"]}: "{restored_task["title"]}"')
+        print(
+            f'Restored task #{restored_task["id"]}: "{restored_task["title"]}"')
         return
 
     # 2. undo mark done (mark it undone)
@@ -212,7 +199,8 @@ def cmd_undo():
             if t["id"] == target_id:
                 t["title"] = old_title
                 saveTask(tasks)
-                print(f"Reverted title of task #{target_id} back to \"{old_title}\"")
+                print(
+                    f"Reverted title of task #{target_id} back to \"{old_title}\"")
                 return
         print("Couldn't undo: task not found anymore.")
         return
@@ -223,19 +211,56 @@ def cmd_undo():
         print("Restored all tasks.")
         return
 
+    saveHistory(history)
     print("Undo action type not recognized.")
 
-#main function
+
+# Top priority
+import heapq
+
+def cmd_top():
+    tasks = loadTask()
+    if not tasks:
+        print("No tasks available.")
+        return
+    
+    # Map priority strings to numeric values
+    priority_map = {"High": 1, "Medium": 2, "Low": 3}
+    
+    # Build tuples of (priority_value, task_id, title, done)
+    heap = [
+        (priority_map.get(t["priority"], 2), t["id"], t["title"], "✔" if t["done"] else "✖")
+        for t in tasks
+    ]
+    print(heap)
+    # Turn it into a heap
+    heapq.heapify(heap)
+    
+    # Get the top (lowest number = highest priority)
+    
+    inv_map = {1: "High", 2: "Medium", 3: "Low"}
+    print(f"🏆 Top Priority Task:")
+    for _ in range(min(3, len(heap))):
+        priority, id, title, done = heapq.heappop(heap)
+        print(f"#{id} [{inv_map[priority]}] [{done}] {title}")
+
+
+
+
+# main function
+
+
 def main():
     if len(sys.argv) < 2:
         print(USAGE)
         return
-    
+
     command = sys.argv[1].lower()
-    
+
     if command == "add":
         if len(sys.argv) < 3:
-            print("Please provide a task title.\nExample:\n  python todo.py add \"Buy milk\"")
+            print(
+                "Please provide a task title.\nExample:\n  python todo.py add \"Buy milk\"")
             return
         args_after_add = sys.argv[2:]
         priority_flag = "Medium"
@@ -244,43 +269,46 @@ def main():
             priority_flag = last_arg
             args_after_add = args_after_add[:-1]
         title = " ".join(args_after_add)
-        cmd_add(title,priority_flag)
-        
+        cmd_add(title, priority_flag)
+
     elif command == "list":
-       show_pending = ("--pending" in sys.argv[2:])
-       cmd_list(show_pending)
-        
+        show_pending = ("--pending" in sys.argv[2:])
+        cmd_list(show_pending)
+
     elif command == "done":
         if len(sys.argv) < 3:
             print("Please provide the task ID to mark done.")
             return
         cmd_done(sys.argv[2])
-    
+
     elif command == "delete":
         if len(sys.argv) < 3:
             print("Please provide the task ID to mark done.")
             return
         cmd_delete(sys.argv[2])
-    
+
     elif command == "clear":
         cmd_clear()
-    
+
     elif command == "edit":
         if len(sys.argv) < 4:
             print("Please provide the task ID and the new title.\nExample:\n  python todo.py edit 3 \"Buy bread instead\"")
             return
         id = sys.argv[2]
         title = " ".join(sys.argv[3:])
-        cmd_edit(id , title)
-    
+        cmd_edit(id, title)
+
     elif command == "undo":
         print("true")
         cmd_undo()
-    
+
+    elif command == "top":
+        cmd_top()
+        
     else:
         print("Unknown command.\n")
         print(USAGE)
-        
-        
+
+
 if __name__ == "__main__":
     main()

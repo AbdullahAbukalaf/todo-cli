@@ -29,6 +29,7 @@ pip install --editable
 ```
 
 ## 🧠 Data Structures Highlights
-- Undo system implemented using a stack of reverse operations (LIFO).
+- Undo system implemented using a stack of reverse operations.
+- Top priority using heap
 
 
